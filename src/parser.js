@@ -1,4 +1,4 @@
-import YAML from "yamljs";
+import YAML from "yamljs/dist/yaml.js";
 
 let defReg = new RegExp("#\\/definitions\\/(\\S*)");
 
