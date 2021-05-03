@@ -1,7 +1,18 @@
+import YAML from "yamljs";
+
 let defReg = new RegExp("#\\/definitions\\/(\\S*)");
 
 export function parse(docJson) {
-    let swaggerJson = JSON.parse(docJson)
+    let swaggerJson = {};
+    try {
+        swaggerJson = JSON.parse(docJson);
+    } catch (e) {
+        try {
+            YAML.parse(docJson);
+        } catch (inner) {
+            throw e;
+        }
+    }
 
     let fixedSwaggerJson = {
         info: swaggerJson.info,
@@ -30,7 +41,7 @@ export function parse(docJson) {
                 description: api.description,
                 deprecated: api.deprecated,
                 request: parseParams(requestParams, definitions),
-                response: parseSchemaParam(responseParams, definitions, true)
+                response: parseSchemaParam(responseParams, definitions, true),
             });
         }
     }
@@ -67,10 +78,10 @@ function parseNormalParam(param) {
     let realType;
     if (param.type == "array") {
         let items = param.items;
-        let refType = resolveType(items.type, items.format)
+        let refType = resolveType(items.type, items.format);
         realType = escape(`Array<${refType}>`);
     } else {
-        realType = resolveType(param.type, param.format)
+        realType = resolveType(param.type, param.format);
     }
 
     return {
@@ -78,7 +89,7 @@ function parseNormalParam(param) {
         type: capitalize(realType),
         required: param.required == true,
         description: param.description,
-        example: param["x-example"]
+        example: param["x-example"],
     };
 }
 
@@ -94,22 +105,26 @@ function parseSchemaParam(param, definitions, expand = false) {
 
     let type = schema.type;
     if (type == "string") {
-        return [{
-            name: param.name,
-            type: capitalize(type),
-            required: param.required == true,
-            description: param.description,
-            example: param["x-example"]
-        }];
+        return [
+            {
+                name: param.name,
+                type: capitalize(type),
+                required: param.required == true,
+                description: param.description,
+                example: param["x-example"],
+            },
+        ];
     }
 
     if (type == "object" && schema.additionalProperties) {
-        return [{
-            name: param.name,
-            type: capitalize(type),
-            required: param.required = true,
-            description: param.description
-        }];
+        return [
+            {
+                name: param.name,
+                type: capitalize(type),
+                required: (param.required = true),
+                description: param.description,
+            },
+        ];
     }
 
     if (type == "array") {
@@ -120,28 +135,32 @@ function parseSchemaParam(param, definitions, expand = false) {
         } else {
             refType = refParamName(schema.items.$ref);
         }
-        return [{
-            name: param.name,
-            type: escape(`Array<${refType}>`),
-            refType: refType,
-            description: param.description,
-            required: param.required == true,
-            refParam: parseRefParam(refType, definitions)
-        }];
+        return [
+            {
+                name: param.name,
+                type: escape(`Array<${refType}>`),
+                refType: refType,
+                description: param.description,
+                required: param.required == true,
+                refParam: parseRefParam(refType, definitions),
+            },
+        ];
     } else {
         let refType = refParamName(schema.$ref);
         if (expand || param.in == "body") {
             return parseRefParam(refType, definitions);
         }
 
-        return [{
-            name: param.name,
-            type: escape(`${refType}`),
-            refType: refType,
-            description: param.description,
-            required: param.required == true,
-            refParam: parseRefParam(refType, definitions)
-        }];
+        return [
+            {
+                name: param.name,
+                type: escape(`${refType}`),
+                refType: refType,
+                description: param.description,
+                required: param.required == true,
+                refParam: parseRefParam(refType, definitions),
+            },
+        ];
     }
 }
 
@@ -165,7 +184,7 @@ function parseRefParam(refType, definitions, refChain = []) {
                 type: escape(capitalize(resolveType(prop.type, prop.format))),
                 required: requireds.includes(key),
                 description: prop.description,
-                example: prop.example
+                example: prop.example,
             });
             continue;
         }
@@ -175,7 +194,9 @@ function parseRefParam(refType, definitions, refChain = []) {
         if (prop.type == "array") {
             let items = prop.items;
             if (items.type) {
-                nestedRefType = capitalize(resolveType(items.type, items.format));
+                nestedRefType = capitalize(
+                    resolveType(items.type, items.format)
+                );
             } else {
                 nestedRefType = refParamName(items.$ref);
             }
@@ -201,7 +222,7 @@ function parseRefParam(refType, definitions, refChain = []) {
             refType: nestedRefType,
             required: requireds.includes(key),
             description: prop.description,
-            refParam: parseRefParam(nestedRefType, definitions, refChain)
+            refParam: parseRefParam(nestedRefType, definitions, refChain),
         });
     }
 
@@ -235,9 +256,9 @@ function refParamName(ref) {
 
 function capitalize(origin) {
     if (typeof origin !== "string") {
-        return origin
+        return origin;
     }
-    return origin.charAt(0).toUpperCase() + origin.slice(1)
+    return origin.charAt(0).toUpperCase() + origin.slice(1);
 }
 
 function escape(origin) {
